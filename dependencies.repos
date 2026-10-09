@@ -1,0 +1,17 @@
+repositories:
+  ari_robot:
+    type: git
+    url: https://github.com/pal-robotics/ari_robot.git
+    version: cfe4d0e1538020596725f1662a6910bb20730236
+  pal_urdf_utils:
+    type: git
+    url: https://github.com/pal-robotics/pal_urdf_utils.git
+    version: e8600a339a3a9b7ffe67d1030190b97b67fb577b
+  launch_pal:
+    type: git
+    url: https://github.com/pal-robotics/launch_pal.git
+    version: 541b0edb6e6a5166edce92a0baf40299cc065961
+  ari_moveit_config:
+    type: git
+    url: https://github.com/pal-robotics/ari_moveit_config.git
+    version: 7a22cd5c6ebe9bbfb68493e109e6e542fbba6617

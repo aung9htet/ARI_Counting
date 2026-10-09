@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
+mkdir -p recordings
+args=(-f compose.yaml)
+if [[ "${ARI_GPU:-software}" == nvidia ]]; then
+    args+=(-f compose.nvidia.yaml)
+else
+    export LIBGL_ALWAYS_SOFTWARE=1
+fi
+case "${1:-help}" in
+    build) docker compose "${args[@]}" build ;;
+    launch)
+        shift
+        docker compose "${args[@]}" run --rm experiment ros2 launch ari_counting_sim experiment.launch.py "$@"
+        ;;
+    shell) docker compose "${args[@]}" run --rm experiment bash ;;
+    run) shift; docker compose "${args[@]}" run --rm experiment "$@" ;;
+    rebuild)
+        docker compose "${args[@]}" run --rm experiment bash -c 'source /opt/ari_ws/install/setup.bash; colcon build --base-paths /workspace/src --merge-install --build-base /workspace/build --install-base /workspace/install'
+        ;;
+    *) echo 'Usage: scripts/ari {build|launch [launch args]|shell|run command...|rebuild}' ;;
+esac

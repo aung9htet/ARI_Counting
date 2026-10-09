@@ -1,0 +1,6 @@
+# Absolute time from start, seconds; positions are radians in joint 1..5 order.
+# Gateway checks reachability of the whole joint path before execution.
+- positions: [0.1, 0.15, 0.1, 0.2, 0.1]
+  time: 3.0
+- positions: [0.0, 0.1, 0.0, 0.1, 0.0]
+  time: 6.0

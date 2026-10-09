@@ -1,0 +1,30 @@
+services:
+  experiment:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
+    image: ari-counting:humble
+    init: true
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    network_mode: host
+    shm_size: 1gb
+    stop_grace_period: 30s
+    stop_signal: SIGINT
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      XAUTHORITY: /tmp/host.xauth
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
+      ARI_HEADLESS: ${ARI_HEADLESS:-0}
+      LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-0}
+      QT_X11_NO_MITSHM: '1'
+    volumes:
+      - .:/workspace
+      - ./recordings:/data
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ${XAUTHORITY:-/dev/null}:/tmp/host.xauth:ro
+    working_dir: /workspace
+    command: [ros2, launch, ari_counting_sim, experiment.launch.py]
