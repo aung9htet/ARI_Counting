@@ -30,7 +30,7 @@ from builtin_interfaces.msg import Duration
 from tf2_ros import Buffer, TransformListener
 from tf2_geometry_msgs import do_transform_pose_stamped
 from ari_counting_sim.robot import joint_limits
-from .validation import trajectory_samples
+from .validation import trajectory_samples, SimDeadline
 
 
 CAMERAS = ['overhead','front','robot']
@@ -137,6 +137,14 @@ class Gateway(Node):
             time.sleep(0.01)
         return future.result()
 
+    def wait_sim(self,future,timeout):
+        # Trajectories run on the simulation clock, which can be slower than wall time.
+        deadline=SimDeadline(timeout)
+        while not future.done():
+            if deadline.expired(self.get_clock().now().nanoseconds): raise TimeoutError('controller result timed out')
+            time.sleep(0.01)
+        return future.result()
+
     def call(self,client,request,timeout=10):
         if not client.wait_for_service(timeout_sec=2): raise RuntimeError(f'{client.srv_name} unavailable')
         return self.wait(client.call_async(request),timeout)
@@ -234,7 +242,7 @@ class Gateway(Node):
             result_future=self.active_goal.get_result_async()
             timeout=max(10,ns(trajectory.points[-1].time_from_start)/1e9+10)
             try:
-                result=self.wait(result_future,timeout,interruptible=False)
+                result=self.wait_sim(result_future,timeout)
             except TimeoutError:
                 self.wait(self.active_goal.cancel_goal_async(),interruptible=False)
                 self.wait(result_future,10,interruptible=False)

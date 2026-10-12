@@ -27,7 +27,10 @@ def keyboard(client,step):
         tty.setcbreak(sys.stdin.fileno())
         while True:
             if not select.select([sys.stdin],[],[],0.1)[0]: continue
-            key=os.read(sys.stdin.fileno(),1).decode(errors='ignore')
+            data=os.read(sys.stdin.fileno(),1)
+            if not data: break  # terminal closed
+            key=data.decode(errors='ignore')
+            if not key: continue  # byte of a non-ASCII key; '' is "in" every string
             if key=='q': client.cancel(); break
             if key=='c': print('\r\n'+str(client.cancel())+'\r'); continue
             if key in '12345': selected=int(key)-1; print(f'\r\nSelected {selected+1}\r'); continue

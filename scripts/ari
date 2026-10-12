@@ -10,15 +10,22 @@ else
     export LIBGL_ALWAYS_SOFTWARE=1
 fi
 case "${1:-help}" in
-    build) docker compose "${args[@]}" build ;;
+    build) shift; docker compose "${args[@]}" build "$@" ;;
     launch)
         shift
-        docker compose "${args[@]}" run --rm experiment ros2 launch ari_counting_sim experiment.launch.py "$@"
+        # The entrypoint keeps terminal signals away from the nodes, so launch must
+        # forward Ctrl+C to them itself instead of assuming the terminal did.
+        docker compose "${args[@]}" run --rm experiment ros2 launch --noninteractive ari_counting_sim experiment.launch.py "$@"
+        ;;
+    stop)
+        # "docker compose down" does not cover the one-off containers that "run" creates.
+        mapfile -t ids < <(docker ps -q --filter "label=com.docker.compose.project.working_dir=$PWD" --filter label=com.docker.compose.oneoff=True)
+        if (( ${#ids[@]} )); then docker stop -t 30 "${ids[@]}"; fi
         ;;
     shell) docker compose "${args[@]}" run --rm experiment bash ;;
     run) shift; docker compose "${args[@]}" run --rm experiment "$@" ;;
     rebuild)
         docker compose "${args[@]}" run --rm experiment bash -c 'source /opt/ari_ws/install/setup.bash; colcon build --base-paths /workspace/src --merge-install --build-base /workspace/build --install-base /workspace/install'
         ;;
-    *) echo 'Usage: scripts/ari {build|launch [launch args]|shell|run command...|rebuild}' ;;
+    *) echo 'Usage: scripts/ari {build [build args]|launch [launch args]|stop|shell|run command...|rebuild}' ;;
 esac

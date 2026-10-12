@@ -65,7 +65,9 @@ def check_collision(client,names):
 
 
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--collision-only',action='store_true'); args=parser.parse_args()
+    parser=argparse.ArgumentParser(); parser.add_argument('--collision-only',action='store_true')
+    parser.add_argument('--save-previews',type=Path,help='directory for the three current camera views')
+    args=parser.parse_args()
     with ExperimentClient() as client:
         client.wait_ready()
         status=client.status(); assert not status['active']
@@ -75,10 +77,12 @@ def main():
             check_collision(client,names); return
         assert all(limit['lower']<=q<=limit['upper'] for limit,q in zip(limits,baseline))
         observation=client.get_observation()
-        folder=Path('/workspace/docs/previews'); folder.mkdir(exist_ok=True,parents=True)
-        for name,view in observation['cameras'].items():
-            assert view['valid']; cv2.imwrite(str(folder/f'{name}.png'),cv2.cvtColor(view['image'],cv2.COLOR_RGB2BGR))
-        print('PASS: saved actual 100-ball camera views',flush=True)
+        assert all(view['valid'] for view in observation['cameras'].values())
+        if args.save_previews:
+            args.save_previews.mkdir(exist_ok=True,parents=True)
+            for name,view in observation['cameras'].items():
+                cv2.imwrite(str(args.save_previews/f'{name}.png'),cv2.cvtColor(view['image'],cv2.COLOR_RGB2BGR))
+            print('PASS: saved current camera views to',args.save_previews,flush=True)
         episode=client.start_recording('IK integration validation')
         try:
             target=list(baseline); target[0]+=0.1

@@ -7,6 +7,11 @@ if [[ -f /workspace/install/setup.bash ]]; then
     source /workspace/install/setup.bash
 fi
 mkdir -p /data
+if [[ "${ROS_LOCALHOST_ONLY:-0}" == 1 ]]; then
+    # Keep Gazebo's own transport on loopback as well as DDS, so the experiment
+    # survives a host interface going down and stays off the shared network.
+    export GAZEBO_IP="${GAZEBO_IP:-127.0.0.1}" IGN_IP="${IGN_IP:-127.0.0.1}"
+fi
 ari_xvfb_pid=''
 ari_display_dir=''
 ari_cleanup() {
@@ -24,7 +29,8 @@ if [[ "${ARI_HEADLESS:-0}" == 1 && "${LIBGL_ALWAYS_SOFTWARE:-0}" != 0 ]]; then
     # /tmp/.X11-unix bind mount is read-only. -displayfd cannot do that.
     ari_display_ready=0
     for ari_display_number in {99..119}; do
-        Xvfb ":$ari_display_number" -screen 0 1280x1024x24 -nolisten tcp \
+        # Own session: a terminal Ctrl+C must not stop X before Gazebo has shut down.
+        setsid Xvfb ":$ari_display_number" -screen 0 1280x1024x24 -nolisten tcp \
             >"$ari_display_dir/xvfb.log" 2>&1 &
         ari_xvfb_pid=$!
         sleep 0.2

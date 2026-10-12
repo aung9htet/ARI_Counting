@@ -14,6 +14,7 @@ from sensor_msgs.msg import Image, JointState, CameraInfo
 from std_msgs.msg import String
 from cv_bridge import CvBridge
 from .gateway import CAMERAS, ns
+from .validation import SimDeadline
 
 
 class ExperimentClient:
@@ -47,7 +48,8 @@ class ExperimentClient:
     def _info(self,name,msg):
         with self.condition: self.infos[name]=msg
 
-    def request(self,operation,timeout=60,**arguments):
+    def request(self,operation,timeout=60,sim_timeout=None,**arguments):
+        # Motions pass sim_timeout: their reply is due in simulation time, not wall time.
         deadline=time.monotonic()+timeout
         while not self.publisher.get_subscription_count():
             if time.monotonic()>deadline: raise TimeoutError('experiment gateway not found; check ROS_DOMAIN_ID and launch')
@@ -56,13 +58,14 @@ class ExperimentClient:
         payload=json.dumps({'id':identifier,'operation':operation,'arm':self.arm,**arguments},allow_nan=False)
         with self.condition: self.pending_ids.add(identifier)
         self.publisher.publish(String(data=payload))
+        motion=SimDeadline(sim_timeout) if sim_timeout is not None else None
         with self.condition:
             while identifier not in self.replies:
-                remaining=deadline-time.monotonic()
-                if remaining<=0:
+                late=motion.expired(self.node.get_clock().now().nanoseconds) if motion else time.monotonic()>deadline
+                if late:
                     self.pending_ids.discard(identifier)
                     raise TimeoutError(f'{operation} timed out; use cancel() before another motion')
-                self.condition.wait(min(remaining,0.1))
+                self.condition.wait(0.1)
             result=self.replies.pop(identifier)
             self.pending_ids.discard(identifier)
         if not result['success']: raise RuntimeError(result['error'])
@@ -73,11 +76,14 @@ class ExperimentClient:
     def wait_ready(self,timeout=120):
         deadline=time.monotonic()+timeout
         while time.monotonic()<deadline:
-            if self.status()['ready']:
+            # The gateway may still be starting, or one reply may precede discovery.
+            try: ready=self.status()['ready']
+            except TimeoutError: continue
+            if ready:
                 observation=self.get_observation()
                 if observation['joint_valid'] and all(view['valid'] and view['camera_info'] is not None for view in observation['cameras'].values()): return
             time.sleep(0.2)
-        raise TimeoutError('simulation did not become ready; inspect launch output')
+        raise TimeoutError('simulation did not become ready; check the launch output, ROS_DOMAIN_ID and ROS_LOCALHOST_ONLY')
 
     def get_observation(self,max_age_ms=100):
         query_ns=self.node.get_clock().now().nanoseconds
@@ -104,15 +110,15 @@ class ExperimentClient:
                 'joint_valid':fresh(joints),'cameras':cameras}
 
     def command_joints(self,positions,duration=2.0):
-        return self.request('joints',positions=[float(q) for q in positions],duration=float(duration),timeout=max(60,duration+30))
+        return self.request('joints',positions=[float(q) for q in positions],duration=float(duration),sim_timeout=duration+60)
 
     def command_trajectory(self,waypoints):
         if not waypoints: raise ValueError('at least one waypoint is required')
         points=[{'positions':[float(q) for q in point['positions']],'time':float(point['time'])} for point in waypoints]
-        return self.request('joints',waypoints=points,timeout=max(60,points[-1]['time']+30))
+        return self.request('joints',waypoints=points,sim_timeout=points[-1]['time']+60)
 
     def move_xyz(self,x,y,z,frame='base_link'):
-        return self.request('xyz',position=[float(x),float(y),float(z)],frame=frame,timeout=90)
+        return self.request('xyz',position=[float(x),float(y),float(z)],frame=frame,sim_timeout=120)
 
     def cancel(self): return self.request('cancel',timeout=15)
     def start_recording(self,instruction=''): return self.request('start_recording',instruction=instruction,timeout=30)

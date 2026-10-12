@@ -20,8 +20,9 @@ def main():
         assert b['stamp_ns']>a['stamp_ns'],'simulation clock stopped'
         assert b['joint_valid']
         for name,view in b['cameras'].items():
-            assert view['valid'] and view['image'].shape==(480,640,3),name
-            assert view['camera_info'].header.frame_id==f'{name}_camera_optical_frame'
+            info=view['camera_info']
+            assert view['valid'] and view['image'].shape==(info.height,info.width,3),name
+            assert info.header.frame_id==f'{name}_camera_optical_frame'
         print('PASS: clock, joint states, controllers, planning scene and three calibrated cameras')
         if args.record: print('Recording:',client.start_recording('Integration validation'))
         try:

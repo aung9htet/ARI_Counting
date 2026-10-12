@@ -8,6 +8,8 @@ controller_manager:
       type: joint_trajectory_controller/JointTrajectoryController
     arm_left_controller:
       type: joint_trajectory_controller/JointTrajectoryController
+    head_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
 joint_state_broadcaster:
   ros__parameters:
     use_sim_time: true
@@ -26,6 +28,17 @@ arm_left_controller:
   ros__parameters:
     use_sim_time: true
     joints: [arm_left_1_joint, arm_left_2_joint, arm_left_3_joint, arm_left_4_joint, arm_left_5_joint]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: false
+    constraints:
+      goal_time: 2.0
+      stopped_velocity_tolerance: 0.1
+# Holds the head at its start pose; an unclaimed joint sags under gravity.
+head_controller:
+  ros__parameters:
+    use_sim_time: true
+    joints: [head_1_joint, head_2_joint]
     command_interfaces: [position]
     state_interfaces: [position, velocity]
     allow_partial_joints_goal: false

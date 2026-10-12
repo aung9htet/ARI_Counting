@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from ari_counting_tools.validation import trajectory_samples, past_indices
+from ari_counting_tools.validation import trajectory_samples, past_indices, SimDeadline
 
 LIMITS=[{'name':f'joint{i}','lower':-1,'upper':1,'velocity':2} for i in range(5)]
 
@@ -30,3 +30,18 @@ def test_causal_alignment_and_staleness():
     assert valid.tolist()==[False,True,True,True,False,True,False]
     assert past_indices([], [1,2])[0].tolist()==[-1,-1]
     with pytest.raises(ValueError): past_indices([200,100],[200])
+
+
+def test_sim_deadline_counts_simulation_time():
+    wall=[0.0]; deadline=SimDeadline(10,stall=30,wall=lambda:wall[0])
+    assert not deadline.expired(0)                       # no /clock message yet
+    wall[0]=5; assert not deadline.expired(500_000_000_000)   # budget starts at first valid time
+    wall[0]=29; assert not deadline.expired(509_000_000_000)  # 24 wall s but only 9 sim s
+    assert deadline.expired(510_000_000_001)
+
+
+def test_sim_deadline_detects_stalled_clock():
+    wall=[0.0]; deadline=SimDeadline(10,stall=30,wall=lambda:wall[0])
+    assert not deadline.expired(1_000_000_000)
+    wall[0]=30; assert not deadline.expired(1_000_000_000)
+    wall[0]=30.1; assert deadline.expired(1_000_000_000)

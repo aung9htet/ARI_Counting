@@ -1,6 +1,28 @@
 """ROS-independent trajectory and timestamp validation."""
 import math
+import time
 import numpy as np
+
+
+class SimDeadline:
+    """Timeout in simulation seconds; software rendering runs below real time.
+
+    A wall-clock guard still fails a simulator whose clock has stopped.
+    """
+    def __init__(self, timeout, stall=30.0, wall=time.monotonic):
+        self.timeout_ns, self.stall, self.wall = round(timeout*1_000_000_000), stall, wall
+        self.start = self.last = None
+        self.moved = wall()
+
+    def expired(self, now_ns):
+        if now_ns != self.last:
+            self.last, self.moved = now_ns, self.wall()
+            # A new client reads zero until its first /clock message arrives.
+            if self.start is None and now_ns > 0:
+                self.start = now_ns
+        if self.wall()-self.moved > self.stall:
+            return True
+        return self.start is not None and now_ns-self.start > self.timeout_ns
 
 
 def validate_targets(targets, limits):

@@ -60,7 +60,7 @@ def setup(context):
     robot_node = Node(package='robot_state_publisher', executable='robot_state_publisher', parameters=[simulation, {'robot_description': robot}], output='screen')
     spawn = Node(package='gazebo_ros', executable='spawn_entity.py', arguments=['-entity','ari','-topic','robot_description','-timeout','120'], output='screen')
     spawners = [Node(package='controller_manager', executable='spawner', arguments=[name, '--controller-manager-timeout', '120'], output='screen')
-                for name in ['joint_state_broadcaster','arm_left_controller','arm_right_controller']]
+                for name in ['joint_state_broadcaster','arm_left_controller','arm_right_controller','head_controller']]
     server=ExecuteProcess(cmd=['gzserver','--verbose','--lockstep','-s','libgazebo_ros_init.so','-s','libgazebo_ros_factory.so',str(folder/'counting.world'), '--ros-args', '--param', 'publish_rate:=200.0'], output='screen')
     move_group=Node(package='moveit_ros_move_group', executable='move_group', parameters=[params], output='screen')
     bridge=Node(package='ari_counting_sim', executable='scene_bridge', parameters=[simulation, {'scene_file': str(folder/'scene.json')}], output='screen')

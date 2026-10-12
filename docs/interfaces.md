@@ -10,11 +10,14 @@
 | `/tf`, `/tf_static` | `tf2_msgs/msg/TFMessage` | Robot and camera transforms |
 | `/clock` | `rosgraph_msgs/msg/Clock` | Simulation clock, 200 Hz |
 | `/arm_{left,right}_controller/follow_joint_trajectory` | `control_msgs/action/FollowJointTrajectory` | Controller execution |
+| `/head_controller/follow_joint_trajectory` | `control_msgs/action/FollowJointTrajectory` | Holds the head at its start pose; the gateway does not command it |
 | `/experiment/commands` | `std_msgs/msg/String` | JSON tool requests |
 | `/experiment/results` | `std_msgs/msg/String` | JSON tool replies |
 | `/experiment/action_events` | `std_msgs/msg/String` | Timestamped action lifecycle log |
 | `/experiment/scene` | `std_msgs/msg/String` | Scene metadata/ground truth, transient-local |
 | `/experiment/scene_ready` | `std_msgs/msg/Bool` | MoveIt collision scene applied, transient-local |
+
+Everything is on `ROS_DOMAIN_ID` 42 unless changed, over Cyclone DDS; with `ROS_LOCALHOST_ONLY=1` it is reachable from this machine only.
 
 `world` is the fixed experiment frame. `base_link` is the robot frame; external camera mounts are children of `world`. Each `<name>_camera_optical_frame` follows ROS optical axes (+Z forward, +X right, +Y down). The robot camera is mounted on `base_link` at the configured pose. Arm tips are `arm_left_hand_link` and `arm_right_hand_link`.
 
@@ -30,6 +33,10 @@ Use `ExperimentClient` instead of constructing JSON manually. The wire protocol 
 | `cancel` | none | Cancellation requested; controller stops and holds |
 | `start_recording` | `instruction` (optional string) | Persistent episode path |
 | `stop_recording` | none | Episode path and bag-finalization status |
+
+`xyz` solves position-only IK starting from the measured posture, so the returned elbow and wrist angles depend on where the arm starts; from arms-down they can differ from call to call.
+
+Motions are timed on the simulation clock. The gateway allows the trajectory duration plus 10 s of simulated time for the controller result, and the client waits for the reply in simulated time as well (`joints`: duration plus 60 s, `xyz`: 120 s), so rendering below real time does not cancel a healthy motion. Both give up if the simulation clock stops advancing for 30 s of wall time. Status, cancellation and recording requests use wall-clock timeouts.
 
 Commands outside limits, too fast, in collision, unreachable, stale or concurrent fail explicitly. Motion planning and execution run outside the ROS callback thread so cancellation and subscriptions remain responsive. Reusing a command ID is rejected. A successful cancellation reply acknowledges the request; the original command subsequently reports its termination. If a client response timeout occurs, request cancellation before issuing another motion.
 

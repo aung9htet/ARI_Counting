@@ -32,4 +32,4 @@ RUN (getent group ${HOST_GID} || groupadd -g ${HOST_GID} ari) \
 WORKDIR /workspace
 STOPSIGNAL SIGINT
 ENTRYPOINT ["/usr/local/bin/ari-entrypoint"]
-CMD ["ros2", "launch", "ari_counting_sim", "experiment.launch.py"]
+CMD ["ros2", "launch", "--noninteractive", "ari_counting_sim", "experiment.launch.py"]
